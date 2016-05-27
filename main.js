@@ -48,8 +48,12 @@ function Manager(owner) {
     var db = this.initDb();
     db.each("SELECT count(first_name) as count FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
               
-          //check if users are more than 1 or not    
-          if (row.count == 1) {
+          //check if there are no results
+          if (row.count == 0) {
+             console.log('No user by the name ' + name);
+          }
+          //check if users are more than 1 or not
+          else if (row.count == 1) {
             db.each("SELECT first_name as first_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
               if(sendText == false) {
                     console.log(row.phone);
