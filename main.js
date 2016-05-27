@@ -44,16 +44,23 @@ function Manager(owner) {
   };
 
   // This fetches the phone number from database and logs it in console
-  this.search = function(name) {
+  this.search = function(name, sendText, message, manager) {
     var db = this.initDb();
     db.each("SELECT count(first_name) as count FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
               
           //check if users are more than 1 or not    
           if (row.count == 1) {
             db.each("SELECT first_name as first_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
-              console.log(row.phone);
+              if(sendText == false) {
+                    console.log(row.phone);
+              }
+              else {
+                manager.sendText(name, row.phone, message);
+              }
             });
           }
+
+          // if users are more than 1, give options
           else if (row.count > 1) {
             var count = 1;
             var usersArray = [];
@@ -67,6 +74,8 @@ function Manager(owner) {
                   console.log('[' +  count++ + '] ' + row.last_name);
                 }
             });
+
+            // prompt user for answer
             var schema = {
               properties: {
                 option: {
@@ -83,7 +92,12 @@ function Manager(owner) {
             prompt.get(schema, function (err, result) {
               var offset = result.option - 1;
               db.each("SELECT first_name as first_name, last_name as last_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "' LIMIT 1 OFFSET " + offset, function(err, row) {
-                  console.log(row.phone);
+                if(sendText == false) {
+                        console.log(row.phone);
+                }
+                else {
+                  manager.sendText(name, row.phone, message);
+                }
               });
               
             });
@@ -93,34 +107,32 @@ function Manager(owner) {
   };
 
   // Function for sending text to contact
-  this.sendText = function(name, message) {
+  this.sendText = function(name, number, message) {
     var phone = '';
     var db = this.initDb();
     var uri = '';
-    db.each("SELECT first_name as first_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
-        console.log(row.first_name + ": " + row.phone);
-        phone = row.phone;
+    console.log(name + ": " + number);
 
-        //send sms with request module
-        request
-          .post('https://jusibe.com/smsapi/send_sms?to=' + encodeURIComponent(phone) + '&from=ContactManager&message=' + encodeURIComponent(message))
-          .auth(consumerInfo.username, consumerInfo.password)
-          .end(function (err, res) {
-            
-            var errorMessage;
-            if (res && res.status === 401) {
-              errorMessage = "Authentication failed! Bad access token?";
-            } else if (err) {
-              errorMessage = err;
-            } else {
-              errorMessage = res.text;
-            }
-            console.error(errorMessage);
-            process.exit(1);
-          });
+    //send sms with request module
+    request
+      .post('https://jusibe.com/smsapi/send_sms?to=' + encodeURIComponent(number) + '&from=ContactManager&message=' + encodeURIComponent(message))
+      .auth(consumerInfo.username, consumerInfo.password)
+      .end(function (err, res) {
+        
+        var errorMessage;
+        if (res && res.status === 401) {
+          errorMessage = "Authentication failed! Bad access token?";
+        } else if (err) {
+          errorMessage = err;
+        } else {
+          errorMessage = 'Message has been sent to ' + name + ' successfully';
+        }
+        console.error(errorMessage);
+        process.exit(1);
       });
   };
 
+  // List all contacts
   this.list = function() {
     var db = this.initDb();
     db.each("SELECT first_name as first_name, last_name as last_name, phone_number as phone FROM contacts", function(err, row) {
@@ -128,3 +140,4 @@ function Manager(owner) {
       });
   };
 }
+

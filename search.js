@@ -10,7 +10,7 @@ var name = process.argv[2];
 if (process.argv[2] != null && process.argv[2] != '')
 {
 	// Run queries serially
-	manager.search(name);
+	manager.search(name, false, '', '');
 }
 else {
 	console.error('Please enter the correct search command:');
