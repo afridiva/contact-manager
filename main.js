@@ -35,68 +35,59 @@ function Manager(owner) {
   };
 
   // Function for adding contact to database
-  this.add = function(fullName, phonenumber) {
+  this.add = function(firstName, lastName, phonenumber) {
       var db = this.initDb();
-      var names = fullName.split(" ");
-      var firstName = names[0];
-      var lastName = '';
       var stmt = db.prepare("INSERT INTO contacts VALUES (?, ?, ?)");
-      if (names.length >= 2) {
-        var lastName = names[1];
-      }
       stmt.run(firstName, lastName, phonenumber);
       stmt.finalize();
       console.log(firstName + ' has been added successfully');
   };
 
-  // Function for adding contact to database
+  // This fetches the phone number from database and logs it in console
   this.search = function(name) {
-    var phonenumber = this.fetch(name);
-    console.log(phonenumber);
-  };
-
-  // This fetches the phone number from database and is used in search and sendText operations
-  this.fetch = function(name) {
     var db = this.initDb();
-    db.all("SELECT first_name as fname, last_name as lname, phone_number as phone FROM contacts where last_name = " + name + " or first_name = " + name, 
-      function (err, cntx) {
-          if (cntx == 1) {
-            console.log(rows.phone);
-            return rows.phone;
+    db.each("SELECT count(first_name) as count FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
+              
+          //check if users are more than 1 or not    
+          if (row.count == 1) {
+            db.each("SELECT first_name as first_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
+              console.log(row.phone);
+            });
           }
-          else if (cntx > 1) {
-          var users = '';
-          var usersArray = [];
-          for(var i = 0; i < rows.length; i++) {
-              if (name == rows[i].lname) {
-                users += ' [' + i + 1 + '] ' + rows[i].fname;
+          else if (row.count > 1) {
+            var count = 1;
+            var usersArray = [];
+            db.each("SELECT first_name as first_name, last_name as last_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "'", function(err, row) {
+                if (name == row.last_name)
+                {
+                  console.log('[' +  count++ + '] ' + row.first_name);
+                }
+                else
+                {
+                  console.log('[' +  count++ + '] ' + row.last_name);
+                }
+            });
+            var schema = {
+              properties: {
+                option: {
+                  description: 'Which ' + name + '?', 
+                  type: 'string',                 // Specify the type of input to expect. 
+                  pattern: /[1-9]/,                  // Regular expression that input must be valid against. 
+                  message: 'You must enter one of the options', // Warning message to display if validation fails. 
+                  required: true                        // If true, value entered must be non-empty.
+                }
               }
-              else {
-                users += ' [' + i + 1 + '] ' + rows[i].lname;
-              }
-          }
-          var schema = {
-            properties: {
-              option: {
-                description: 'Which ' + name + '?' + users, 
-                type: 'string',                 // Specify the type of input to expect. 
-                pattern: /[1-9]/,                  // Regular expression that input must be valid against. 
-                message: 'You must enter one of the options', // Warning message to display if validation fails. 
-                required: true                        // If true, value entered must be non-empty.
-              }
-            }
-          };
+            };
 
-          prompt.start();
-          prompt.get(schema, function (err, result) {
-            if (result.option <= rows.length) {
-                this.dbFetch(name + ' and first_name = ' + rows[result.option - 1]);
-            }
-            else {
-              console.log('You must enter one of the options');
-            }
-          });
-        }
+            prompt.start();
+            prompt.get(schema, function (err, result) {
+              var offset = result.option - 1;
+              db.each("SELECT first_name as first_name, last_name as last_name, phone_number as phone FROM contacts where first_name = '" + name + "' or last_name = '" + name + "' LIMIT 1 OFFSET " + offset, function(err, row) {
+                  console.log(row.phone);
+              });
+              
+            });
+          }
       });
 
   };
@@ -127,6 +118,13 @@ function Manager(owner) {
             console.error(errorMessage);
             process.exit(1);
           });
+      });
+  };
+
+  this.list = function() {
+    var db = this.initDb();
+    db.each("SELECT first_name as first_name, last_name as last_name, phone_number as phone FROM contacts", function(err, row) {
+        console.log('First Name: ' + row.first_name + ", Last Name: " + row.last_name + ", Phone Number: " + row.phone);
       });
   };
 }
